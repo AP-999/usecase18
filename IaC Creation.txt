@@ -1,0 +1,156 @@
+Please create the Terraform code for the following task:
+
+A modular approach is used.
+One cloud virtual network is provisioned.
+Two subnets (public and private) are provisioned using for_each meta-argument.
+Two identical virtual machines are provisioned using for_each meta-argument.
+The virtual machines are in the cloud virtual network, one in a private subnet and another in a public subnet.
+The region is eu-central-1.
+ChatGPT
+To accomplish the given task using Terraform, we'll break down the implementation into the following steps:
+
+Create a module for provisioning virtual networks.
+Create a module for provisioning subnets.
+Create a module for provisioning virtual machines.
+Use these modules in the main Terraform configuration file.
+I'll give a simplified example for AWS using Terraform:
+
+1. Virtual Network Module
+modules/vnet/main.tf
+
+hcl
+Copy code
+resource "aws_vpc" "main_vpc" {
+  cidr_block = var.cidr_block
+  enable_dns_support = true
+  enable_dns_hostnames = true
+  tags = {
+    Name = "main_vpc"
+  }
+}
+
+output "vpc_id" {
+  value = aws_vpc.main_vpc.id
+}
+modules/vnet/variables.tf
+
+hcl
+Copy code
+variable "cidr_block" {
+  description = "CIDR block for the VPC"
+  type        = string
+}
+2. Subnets Module
+modules/subnets/main.tf
+
+hcl
+Copy code
+resource "aws_subnet" "subnet" {
+  for_each          = var.subnets
+  vpc_id            = var.vpc_id
+  cidr_block        = each.value.cidr
+  map_public_ip_on_launch = each.value.public
+  tags = {
+    Name = each.value.name
+  }
+}
+
+output "subnet_ids" {
+  value = { for k, v in aws_subnet.subnet : k => v.id }
+}
+modules/subnets/variables.tf
+
+hcl
+Copy code
+variable "vpc_id" {
+  description = "VPC ID"
+  type        = string
+}
+
+variable "subnets" {
+  description = "Map of subnets"
+  type = map(object({
+    cidr   = string
+    public = bool
+    name   = string
+  }))
+}
+3. Virtual Machines (EC2) Module
+modules/vm/main.tf
+
+hcl
+Copy code
+resource "aws_instance" "vm" {
+  for_each     = var.instances
+  ami          = var.ami
+  instance_type = "t2.micro"
+  subnet_id    = each.value.subnet_id
+
+  tags = {
+    Name = each.value.name
+  }
+}
+modules/vm/variables.tf
+
+hcl
+Copy code
+variable "ami" {
+  description = "The AMI ID for EC2 instances"
+  type        = string
+}
+
+variable "instances" {
+  description = "Map of instances"
+  type = map(object({
+    subnet_id = string
+    name      = string
+  }))
+}
+4. Main Terraform Configuration File
+main.tf
+
+hcl
+Copy code
+module "vnet" {
+  source     = "./modules/vnet"
+  cidr_block = "10.0.0.0/16"
+}
+
+module "subnets" {
+  source  = "./modules/subnets"
+  vpc_id  = module.vnet.vpc_id
+  subnets = {
+    public = {
+      cidr   = "10.0.1.0/24"
+      public = true
+      name   = "public-subnet"
+    },
+    private = {
+      cidr   = "10.0.2.0/24"
+      public = false
+      name   = "private-subnet"
+    }
+  }
+}
+
+module "vm" {
+  source = "./modules/vm"
+  ami    = "ami-xxxxxxxxxxxxxxxxx" # Replace with a valid AMI ID
+  instances = {
+    vm_public = {
+      subnet_id = module.subnets.subnet_ids["public"]
+      name      = "VM-Public"
+    },
+    vm_private = {
+      subnet_id = module.subnets.subnet_ids["private"]
+      name      = "VM-Private"
+    }
+  }
+}
+
+provider "aws" {
+  region = "eu-central-1"
+}
+Note: This example assumes AWS as the cloud provider and uses t2.micro EC2 instances. Also, ensure that you replace the AMI ID placeholder ami-xxxxxxxxxxxxxxxxx with a valid AMI ID for your region (eu-central-1). Adjustments will be needed if another cloud provider is intended.
+
+Before applying the Terraform code, make sure you have your AWS credentials set up either in the ~/.aws/credentials file or via environment variables, and then run terraform init followed by terraform apply.
