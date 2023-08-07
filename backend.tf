@@ -1,3 +1,4 @@
+
 terraform {
   backend "s3" {
     bucket         = "usecase18-terraform-backend-bucket-v3"
@@ -7,6 +8,7 @@ terraform {
     encrypt        = true
   }
 }
+
 
 resource "aws_s3_bucket" "terraform_backend_v3" {
   bucket = "usecase18-terraform-backend-bucket-v3"

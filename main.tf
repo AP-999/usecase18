@@ -26,7 +26,7 @@ module "subnets" {
 
 module "vm" {
   source = "./modules/vm"
-  ami    = "ami-04e601abe3e1a910f" # Replace with a valid AMI ID
+  ami    = "ami-0e00e602389e469a3" # Replace with a valid AMI ID
   instances = {
     vm_public = {
       subnet_id = module.subnets.subnet_ids["public"]
